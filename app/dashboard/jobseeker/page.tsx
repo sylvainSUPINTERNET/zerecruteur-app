@@ -1,5 +1,7 @@
 'use client'
 
+import ObserverWrapper from "@/app/components/ObserverWrapper";
+
 export default function DashboardJobSeeker() {
 
     async function onSubmitCv(ev:any) {
@@ -25,6 +27,10 @@ export default function DashboardJobSeeker() {
 
     return (
         <div>
+
+            <ObserverWrapper>
+                <p id="XD">XD</p>
+            </ObserverWrapper>
             <form onSubmit={onSubmitCv}>
                 <label htmlFor="uploaderCv">Déposer un CV (PDF) </label>
                 <input id="uploaderCv" type="file" name="uploaderCv" accept="application/pdf"></input>
