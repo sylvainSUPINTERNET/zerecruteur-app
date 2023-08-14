@@ -56,8 +56,9 @@ export default function Home() {
         <p>ok</p>
         <p>ok</p>
         <p>ok</p>
-        <p>ok</p>
-
+        <ObserverWrapper>
+          <p id="last">ok</p>
+        </ObserverWrapper>
 
       </div>
 
