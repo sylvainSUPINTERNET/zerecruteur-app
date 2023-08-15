@@ -21,6 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ApiKeyProvider config={{
           "apiKey": "MYPUBLICKEY",
+          "applicationId": "MY_APP_ID",
           "options": {
             "firstImpressions": true,
           }

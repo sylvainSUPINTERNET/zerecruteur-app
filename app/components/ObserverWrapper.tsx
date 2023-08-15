@@ -4,15 +4,54 @@ import { useRouter } from "next/router";
 import { useState, useEffect, createContext, useContext } from "react";
 
 
-let debounceTimer: string | number | NodeJS.Timeout | undefined;
+interface IMetricEvent {
+    id: string,
+    htmlTag: string,
+    actions: [
+        {
+            name: string,
+            count: number
+        }
+    ]
+}
 
-const debounce = (func:any, delay:any) => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(func, delay);
+const updateCache = (cache:Array<IMetricEvent>, metric:IMetricEvent):Array<IMetricEvent>  => {
+    if (cache.length === 0) {
+        return [metric];
+    }
+
+    let found = false;
+
+    for (const cachedMetric of cache) {
+        if (cachedMetric.id === metric.id && cachedMetric.htmlTag === metric.htmlTag) {
+            let actionFound = false;
+            for (let i = 0; i < cachedMetric.actions.length; i++) {
+                if (cachedMetric.actions[i].name === metric.actions[0].name) {
+                    cachedMetric.actions[i].count += metric.actions[0].count;
+                    actionFound = true;
+                    break;
+                }
+            }
+
+            if (!actionFound) {
+                cachedMetric.actions.push(metric.actions[0]);
+            }
+
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        cache.push(metric);
+    }
+
+    return cache;
 }
 
 export const ApiKeyProvider = ({config, children}: {config: {
     apiKey: string,
+    applicationId: string,
     options: {
         firstImpressions: boolean
     }
@@ -22,7 +61,7 @@ export const ApiKeyProvider = ({config, children}: {config: {
 const ApiKeyContext = createContext<any>(ApiKeyProvider);
 
 
-const parseUrlParams = () => {
+const parseUrlParams = async () => {
     //?utm_source=facebook&utm_medium=social&utm_campaign=product_launch
     const urlParams = new URLSearchParams(window.location.search);
     const utm_source = urlParams.get("utm_source");
@@ -32,7 +71,7 @@ const parseUrlParams = () => {
     // console.log(utm_source, utm_medium, utm_campaign);
 }
 
-const getBrowserPlatformDetails = () => {
+const getBrowserPlatformDetails = async () => {
     // console.log(window.navigator);
     // user agent 
     // vendor 
@@ -40,76 +79,83 @@ const getBrowserPlatformDetails = () => {
     // platform
 }
 
-const sendMetrics = async ( ) => {
-    console.log("Send metrics");
-    // const res = await fetch('http://localhost:9000/api/metrics', {
-    //     method: 'POST',
-    //     headers: {
-    //         'Content-Type': 'application/json'
-    //     },
-    //     body: JSON.stringify({
-    //         applicationId: "",
-    //         fromUrl: "",
-    //         elements: [
-    //             {
-    //                 id: "",
-    //                 htmlTag: "",
-    //                 action: {
-    //                     "name":"",
-    //                     "count": 1
-    //                 }
-    //             }
-    //         ]
-    //     })
-    // });
-    // const json = await res.json()
-    // console.log(json)
+/**
+ * Data related to the DOM ( click, mouseover, etc)
+ */
+const sendMetrics = async ( contextApi:any, domElementId: string, timerEventsCache:Array<IMetricEvent>) => {
+    console.log(timerEventsCache)
+    if ( timerEventsCache.length === 0 ) return;
+
+    try {
+
+        console.log("Send DOM events metrics");
+        console.log(domElementId);
+        // await parseUrlParams();
+        // await getBrowserPlatformDetails();
+
+        const raw = JSON.stringify({
+            "applicationId": `${contextApi.applicationId}`,
+            "fromUrl": `${window.location.pathname}`,
+            "elements": timerEventsCache
+            // "elements": [
+            //         {
+            //             "id":"btn-id-1",
+            //             "htmlTag":"button",
+            //             "actions": [
+            //                 {
+            //                     "name":"click",
+            //                     "count": 150
+            //                 },
+            //                 {
+            //                     "name":"click",
+            //                     "count": 12
+            //                 }
+            //             ]
+            //         },
+            //                 {
+            //             "id":"btn-id-XD",
+            //             "htmlTag":"button",
+            //             "actions": [
+            //                 {
+            //                     "name":"mouseover",
+            //                     "count": 1
+            //                 },
+            //                 {
+            //                     "name":"click",
+            //                     "count": 12
+            //                 }
+            //             ]
+            //         }
+            //     ]
+            });
+
+            const resp = await fetch('http://localhost:9000/api/metrics', {
+            method: 'POST',
+            credentials: 'include', //'same-origin' => must use same origin for prod TODO
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: raw
+            });
+            const data = await resp.json();
+            console.log(data);
+
+            timerEventsCache = [];
+
+    } catch ( e ) {
+
+            timerEventsCache = [];
+    }
+    
 }
 
 
-// const countFirstImpressionPerPage = () => {
-
-//     const prefixCookieName = btoa("MY_APP_NAME");
-
-//     const cookieName = `${prefixCookieName}`;
-//     let cleaned = cookieName.replace("=", "").replace(";", "").replace("/", "").replace("_","");
-
-//         // Check if the cookie already exists
-//     if (document.cookie.indexOf(cleaned) === -1) {
-//         const expirationDays = 30; // 30 days expiration
-//         const expirationDate = new Date();
-//         expirationDate.setTime(expirationDate.getTime() + expirationDays * 24 * 60 * 60 * 1000);
-//         const cookieString = `${cleaned}=${window.location.pathname}; expires=${expirationDate.toUTCString()}; path=/`;
-//         document.cookie = cookieString;
-//     } else {
-//         const existingCookie = document.cookie.split("; ").find((cookie) => cookie.startsWith(`${cleaned}=`));
-//         console.log("existing cookie ?3", existingCookie);
-
-//         if ( existingCookie ) {
-
-//             const existingValue = existingCookie.split("=")[1];
-//             const pathsArray = existingValue.split(","); // Split the value into an array of paths
-      
-//             // Check if the current path already exists in the array of paths
-//             const isPathAlreadyPresent = pathsArray.includes(window.location.pathname);
-      
-//             if (!isPathAlreadyPresent) {
-//               // If the path is not already present, add it to the array and update the cookie
-//               pathsArray.push(window.location.pathname);
-//               const newValue = pathsArray.join(","); // Join the array back to a comma-separated string
-//               const expirationDays = 30; // 30 days expiration
-//               const expirationDate = new Date();
-//               expirationDate.setTime(expirationDate.getTime() + expirationDays * 24 * 60 * 60 * 1000);
-//               const cookieString = `${cleaned}=${newValue}; expires=${expirationDate.toUTCString()}; path=/`;
-//               document.cookie = cookieString;
-
-
-//         }
-//     }
-
-    
-//     }
-// }
+/**
+ * Data related to the DOM ( intersection observer )
+ */
+const sendIntersectMetric = async ( contextApi:any ) => {
+    console.log("Send intersect metrics");
+}
 
 
 export default function ObserverWrapper({ children, threshold = 0.1, ...props }: any) {
@@ -127,19 +173,34 @@ export default function ObserverWrapper({ children, threshold = 0.1, ...props }:
     // rate limit https://www.npmjs.com/package/express-rate-limit
     // setup key system to avoid les fdp
 
+
+    let timerEvents:any;
+    let timerIntersect:any;
+    let timerEventsCache : Array<IMetricEvent> = [];
+    
+
+
     useEffect( () => {
+
 
         supportedEvents.forEach( (event) => {
 
-            // TODO update ici ( faire une boucle pour gérer tous les event des element enfant d'efnat etc)
             document.querySelector('#'+children.props.id)!.addEventListener(event, (e:any) => {
-                console.log("====================================")
-                // console.log(`${event} : ${children.props.id} - ${window.location.href}`);
-                // parseUrlParams();
-                // getBrowserPlatformDetails();
-                debounce(sendMetrics(), 5000);
-                console.log("====================================")
-
+                console.log("ici");
+                timerEventsCache = updateCache(timerEventsCache, {
+                    id: children.props.id,
+                    htmlTag: children.props.htmlTag,
+                    actions: [
+                        {
+                            name: event,
+                            count: 1
+                        }
+                    ]
+                });
+                // debounce.
+                // if value change, will trigger in 2s, but if another change is detected before, remove the current timer req and replace it
+                clearTimeout(timerEvents);
+                timerEvents = setTimeout( async () => await sendMetrics(contextApi, children.props.id, timerEventsCache), 2000);
             });
 
         });
@@ -147,13 +208,28 @@ export default function ObserverWrapper({ children, threshold = 0.1, ...props }:
         let observer = new IntersectionObserver((entries:any) => {
             
             if ( entries[0].isIntersecting ) {
-                setColor("bg bg-red-500");
-                console.log("Intercepted : #" + entries[0].target.id)
+                // setColor("bg bg-red-500");
+                // console.log("Intercepted : #" + entries[0].target.id)
+
+                timerEventsCache = updateCache(timerEventsCache, {
+                    id: children.props.id,
+                    htmlTag: children.props.htmlTag,
+                    actions: [
+                        {
+                            name: "intersect",
+                            count: 1
+                        }
+                    ]
+                });
+
+                clearTimeout(timerIntersect);
+                timerIntersect = setTimeout( async () => await sendMetrics(contextApi, children.props.id, timerEventsCache), 2000);
             } else {
-                setColor("bg bg-blue-500");
+                // setColor("bg bg-blue-500");
             }
 
         }, { threshold: 1.0 });
+
         observer.observe(document.querySelector('#'+children.props.id)!);
 
         return () => {
