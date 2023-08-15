@@ -83,8 +83,7 @@ const getBrowserPlatformDetails = async () => {
  * Data related to the DOM ( click, mouseover, etc)
  */
 const sendMetrics = async ( contextApi:any, domElementId: string, timerEventsCache:Array<IMetricEvent>) => {
-    console.log(timerEventsCache)
-    if ( timerEventsCache.length === 0 ) return;
+    if ( timerEventsCache.length === 0 ) return timerEventsCache;
 
     try {
 
@@ -142,9 +141,12 @@ const sendMetrics = async ( contextApi:any, domElementId: string, timerEventsCac
 
             timerEventsCache = [];
 
+            return timerEventsCache;
+
     } catch ( e ) {
 
             timerEventsCache = [];
+            return timerEventsCache;
     }
     
 }
@@ -186,7 +188,6 @@ export default function ObserverWrapper({ children, threshold = 0.1, ...props }:
         supportedEvents.forEach( (event) => {
 
             document.querySelector('#'+children.props.id)!.addEventListener(event, (e:any) => {
-                console.log("ici");
                 timerEventsCache = updateCache(timerEventsCache, {
                     id: children.props.id,
                     htmlTag: children.props.htmlTag,
@@ -200,7 +201,7 @@ export default function ObserverWrapper({ children, threshold = 0.1, ...props }:
                 // debounce.
                 // if value change, will trigger in 2s, but if another change is detected before, remove the current timer req and replace it
                 clearTimeout(timerEvents);
-                timerEvents = setTimeout( async () => await sendMetrics(contextApi, children.props.id, timerEventsCache), 2000);
+                timerEvents = setTimeout( async () => timerEventsCache = await sendMetrics(contextApi, children.props.id, timerEventsCache), 2000);
             });
 
         });
@@ -223,7 +224,7 @@ export default function ObserverWrapper({ children, threshold = 0.1, ...props }:
                 });
 
                 clearTimeout(timerIntersect);
-                timerIntersect = setTimeout( async () => await sendMetrics(contextApi, children.props.id, timerEventsCache), 2000);
+                timerIntersect = setTimeout( async () => timerEventsCache = await sendMetrics(contextApi, children.props.id, timerEventsCache), 2000);
             } else {
                 // setColor("bg bg-blue-500");
             }
